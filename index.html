@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Human Verification</title>
+
+<style>
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    min-height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    background: #f2f4f7;
+}
+
+.card {
+    width: 100%;
+    max-width: 420px;
+
+    padding: 32px;
+
+    background: #fff;
+
+    border-radius: 16px;
+
+    box-shadow:
+        0 10px 35px rgba(0,0,0,.10);
+}
+
+h1 {
+    text-align: center;
+
+    font-size: 24px;
+
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    text-align: center;
+
+    color: #777;
+
+    font-size: 14px;
+
+    line-height: 1.5;
+
+    margin-bottom: 24px;
+}
+
+
+/* CAPTCHA */
+
+.captcha-area {
+    display: flex;
+
+    gap: 8px;
+
+    margin-bottom: 15px;
+}
+
+.captcha {
+    position: relative;
+
+    flex: 1;
+
+    height: 75px;
+
+    overflow: hidden;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background:
+        repeating-linear-gradient(
+            45deg,
+            #f0f0f0,
+            #f0f0f0 3px,
+            #e5e5e5 3px,
+            #e5e5e5 6px
+        );
+
+    border: 1px solid #ccc;
+
+    border-radius: 8px;
+
+    user-select: none;
+}
+
+
+/* CAPTCHA lines */
+
+.captcha::before {
+
+    content: "";
+
+    position: absolute;
+
+    width: 120%;
+    height: 2px;
+
+    left: -10%;
+    top: 25px;
+
+    background: #777;
+
+    opacity: .55;
+
+    transform: rotate(-8deg);
+
+    pointer-events: none;
+}
+
+.captcha::after {
+
+    content: "";
+
+    position: absolute;
+
+    width: 120%;
+    height: 2px;
+
+    left: -10%;
+    top: 48px;
+
+    background: #777;
+
+    opacity: .45;
+
+    transform: rotate(7deg);
+
+    pointer-events: none;
+}
+
+
+/* CAPTCHA characters */
+
+.character {
+
+    position: relative;
+
+    z-index: 2;
+
+    display: inline-block;
+
+    margin: 0 2px;
+
+    font-size: 28px;
+
+    font-weight: 800;
+
+    color: #222;
+
+    text-shadow:
+        1px 1px 0 #fff,
+        -1px -1px 0 #aaa;
+
+    transform:
+        rotate(var(--rotation))
+        translateY(var(--offset));
+}
+
+
+/* Refresh */
+
+.refresh {
+
+    width: 55px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #111;
+
+    color: #fff;
+
+    font-size: 24px;
+
+    cursor: pointer;
+
+    transition: .2s;
+}
+
+.refresh:hover {
+    background: #333;
+}
+
+.refresh:disabled {
+    opacity: .5;
+
+    cursor: not-allowed;
+}
+
+
+/* Input */
+
+.captcha-input {
+
+    width: 100%;
+
+    height: 50px;
+
+    padding: 0 15px;
+
+    border: 1px solid #ccc;
+
+    border-radius: 8px;
+
+    outline: none;
+
+    font-size: 17px;
+
+    letter-spacing: 2px;
+
+    margin-bottom: 12px;
+}
+
+.captcha-input:focus {
+    border-color: #111;
+}
+
+
+/* Verify */
+
+.verify {
+
+    width: 100%;
+
+    height: 50px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #111;
+
+    color: #fff;
+
+    font-size: 16px;
+
+    font-weight: bold;
+
+    cursor: pointer;
+
+    transition: .2s;
+}
+
+.verify:hover {
+    background: #333;
+}
+
+.verify:disabled {
+    background: #777;
+
+    cursor: not-allowed;
+}
+
+
+/* Message */
+
+.message {
+
+    min-height: 20px;
+
+    margin-top: 12px;
+
+    text-align: center;
+
+    font-size: 14px;
+}
+
+
+/* Redirect status */
+
+.redirecting {
+
+    display: none;
+
+    text-align: center;
+
+    margin-top: 20px;
+
+    color: #15803d;
+
+    font-size: 14px;
+}
+
+.redirecting.show {
+    display: block;
+}
+
+
+/* Mobile */
+
+@media (max-width: 450px) {
+
+    .card {
+        padding: 24px 18px;
+    }
+
+    .character {
+        font-size: 23px;
+
+        margin: 0 1px;
+    }
+
+    .captcha {
+        height: 65px;
+    }
+
+    .refresh {
+        width: 50px;
+    }
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="card">
+
+    <h1>
+        Human Verification
+    </h1>
+
+    <p class="subtitle">
+        Enter the characters exactly as shown.
+        CAPTCHA is case-sensitive.
+    </p>
+
+
+    <!-- CAPTCHA -->
+
+    <div class="captcha-area">
+
+        <div
+            class="captcha"
+            id="captcha"
+        ></div>
+
+
+        <button
+            type="button"
+            class="refresh"
+            id="refresh"
+            title="Generate new CAPTCHA"
+        >
+            ↻
+        </button>
+
+    </div>
+
+
+    <!-- INPUT -->
+
+    <input
+        type="text"
+        id="captchaInput"
+        class="captcha-input"
+        placeholder="Enter CAPTCHA"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        maxlength="6"
+    >
+
+
+    <!-- VERIFY -->
+
+    <button
+        type="button"
+        class="verify"
+        id="verify"
+    >
+        Verify & Continue
+    </button>
+
+
+    <!-- MESSAGE -->
+
+    <div
+        class="message"
+        id="message"
+    ></div>
+
+
+    <!-- REDIRECT STATUS -->
+
+    <div
+        class="redirecting"
+        id="redirecting"
+    >
+        ✓ Verification successful.
+        Redirecting...
+    </div>
+
+</div>
+
+
+
+<script>
+
+/* ==========================================
+   REDIRECT CONFIGURATION
+========================================== */
+
+
+/*
+    CHANGE THIS URL
+
+    This is the ONLY destination
+    activated after CAPTCHA verification.
+*/
+
+const REDIRECT_URL =
+    "https://brief25.github.io/MurnHelp_test/";
+
+
+/* ==========================================
+   CAPTCHA CONFIGURATION
+========================================== */
+
+
+/*
+    Uppercase
+    Lowercase
+    Numbers
+
+    Ambiguous characters such as
+    0, O, 1 and I are excluded.
+*/
+
+const characters =
+    "ABCDEFGHJKLMNPQRSTUVWXYZ" +
+    "abcdefghijkmnpqrstuvwxyz" +
+    "23456789";
+
+
+const CAPTCHA_LENGTH = 6;
+
+
+let captchaCode = "";
+
+
+/* ==========================================
+   GENERATE CAPTCHA
+========================================== */
+
+function generateCaptcha() {
+
+    captchaCode = "";
+
+    const captcha =
+        document.getElementById("captcha");
+
+    const input =
+        document.getElementById("captchaInput");
+
+    const message =
+        document.getElementById("message");
+
+
+    captcha.innerHTML = "";
+
+    message.textContent = "";
+
+
+    for (
+        let i = 0;
+        i < CAPTCHA_LENGTH;
+        i++
+    ) {
+
+        const randomIndex =
+            Math.floor(
+                Math.random() *
+                characters.length
+            );
+
+
+        const character =
+            characters[randomIndex];
+
+
+        /*
+            Store exact case.
+        */
+
+        captchaCode += character;
+
+
+        /*
+            Create visual character.
+        */
+
+        const span =
+            document.createElement("span");
+
+
+        span.className =
+            "character";
+
+
+        span.textContent =
+            character;
+
+
+        /*
+            Random rotation.
+        */
+
+        const rotation =
+            Math.floor(
+                Math.random() * 31
+            ) - 15;
+
+
+        /*
+            Random vertical movement.
+        */
+
+        const offset =
+            Math.floor(
+                Math.random() * 11
+            ) - 5;
+
+
+        span.style.setProperty(
+            "--rotation",
+            rotation + "deg"
+        );
+
+
+        span.style.setProperty(
+            "--offset",
+            offset + "px"
+        );
+
+
+        captcha.appendChild(span);
+
+    }
+
+
+    input.value = "";
+
+}
+
+
+/* ==========================================
+   VERIFY CAPTCHA
+========================================== */
+
+function verifyCaptcha() {
+
+    const input =
+        document.getElementById(
+            "captchaInput"
+        );
+
+
+    const message =
+        document.getElementById(
+            "message"
+        );
+
+
+    const verifyButton =
+        document.getElementById(
+            "verify"
+        );
+
+
+    const refreshButton =
+        document.getElementById(
+            "refresh"
+        );
+
+
+    const redirecting =
+        document.getElementById(
+            "redirecting"
+        );
+
+
+    /*
+        DO NOT use:
+
+        .toUpperCase()
+
+        .toLowerCase()
+
+        CAPTCHA remains
+        case-sensitive.
+    */
+
+    const userInput =
+        input.value.trim();
+
+
+    /* Empty */
+
+    if (userInput === "") {
+
+        message.textContent =
+            "Please enter the CAPTCHA.";
+
+        message.style.color =
+            "#d97706";
+
+        return;
+    }
+
+
+    /* ======================================
+       EXACT CASE-SENSITIVE MATCH
+    ====================================== */
+
+    if (userInput === captchaCode) {
+
+
+        /*
+            Verification successful.
+        */
+
+        message.textContent =
+            "✓ CAPTCHA verified.";
+
+        message.style.color =
+            "#15803d";
+
+
+        /*
+            Disable controls.
+        */
+
+        input.disabled = true;
+
+        verifyButton.disabled = true;
+
+        refreshButton.disabled = true;
+
+
+        /*
+            Show redirect message.
+        */
+
+        redirecting.classList.add("show");
+
+
+        /*
+            Automatic redirect.
+
+            700ms gives the user a
+            moment to see the success message.
+        */
+
+        setTimeout(function() {
+
+            window.location.href =
+                REDIRECT_URL;
+
+        }, 700);
+
+    }
+
+    else {
+
+
+        /*
+            Wrong CAPTCHA.
+        */
+
+        message.textContent =
+            "✕ Incorrect CAPTCHA. Try again.";
+
+        message.style.color =
+            "#dc2626";
+
+
+        /*
+            Generate a new CAPTCHA.
+        */
+
+        generateCaptcha();
+
+    }
+
+}
+
+
+/* ==========================================
+   BUTTON EVENTS
+========================================== */
+
+document
+    .getElementById("verify")
+    .addEventListener(
+        "click",
+        verifyCaptcha
+    );
+
+
+document
+    .getElementById("refresh")
+    .addEventListener(
+        "click",
+        generateCaptcha
+    );
+
+
+/* ==========================================
+   ENTER KEY
+========================================== */
+
+document
+    .getElementById("captchaInput")
+    .addEventListener(
+        "keydown",
+        function(event) {
+
+            if (event.key === "Enter") {
+
+                verifyCaptcha();
+
+            }
+
+        }
+    );
+
+
+/* ==========================================
+   INITIAL CAPTCHA
+========================================== */
+
+generateCaptcha();
+
+</script>
+
+
+</body>
+
+</html>
